@@ -4,19 +4,10 @@ import (
 	"errors"
 	"os"
 	"reflect"
+	"strings"
 
 	"github.com/craimbault/go-config/parser"
 )
-
-func reflectWalk(e interface{}, t reflect.Type) {
-	switch t.Kind() {
-	case reflect.Array, reflect.Chan, reflect.Map, reflect.Ptr, reflect.Slice:
-		reflectWalk(e, t.Elem())
-	case reflect.Struct:
-		var parents []string
-		reflectStructWalk(e, t, replaceWithEnvValue, parents)
-	}
-}
 
 func reflectStructWalk(e any, t reflect.Type, extractMethod structExtract, parents []string) {
 	if t.Kind() == reflect.Struct {
@@ -53,48 +44,68 @@ func replaceWithEnvValue(e interface{}, field reflect.StructField, parents []str
 	if len(envStrVal) > 0 {
 		// On ajoute le champ courant a la liste des champs a parcourir pour faire le set (recursif)
 		fieldNames := append(parents, field.Name)
-		v := reflect.ValueOf(e).Elem()
-		for _, fieldName := range fieldNames {
-			v = v.FieldByName(fieldName)
-		}
 
-		// Si l'on a pas access en ecriture
-		if !v.CanSet() {
-			panic(errors.New("[go-config] cannot set field[" + field.Name + "]"))
-		}
+		// On recupere la reflection
+		v := getReflectValueOf(e, fieldNames)
 
-		// On parse la valeur en fonction du type
-		switch field.Type.Kind() {
-		case reflect.Bool:
-			v.SetBool(parser.StringToBoolPanic(envStrVal))
-		case reflect.Float32:
-			v.Set(reflect.ValueOf(parser.StringToFloat32Panic(envStrVal)))
-		case reflect.Float64:
-			v.Set(reflect.ValueOf(parser.StringToFloat64Panic(envStrVal)))
-		case reflect.Int:
-			v.Set(reflect.ValueOf(parser.StringToIntPanic(envStrVal)))
-		case reflect.Int8:
-			v.Set(reflect.ValueOf(parser.StringToInt8Panic(envStrVal)))
-		case reflect.Int16:
-			v.Set(reflect.ValueOf(parser.StringToInt16Panic(envStrVal)))
-		case reflect.Int32:
-			v.Set(reflect.ValueOf(parser.StringToInt32Panic(envStrVal)))
-		case reflect.Int64:
-			v.Set(reflect.ValueOf(parser.StringToInt64Panic(envStrVal)))
-		case reflect.String:
-			v.SetString(envStrVal)
-		case reflect.Uint:
-			v.Set(reflect.ValueOf(parser.StringToUintPanic(envStrVal)))
-		case reflect.Uint8:
-			v.Set(reflect.ValueOf(parser.StringToUint8Panic(envStrVal)))
-		case reflect.Uint16:
-			v.Set(reflect.ValueOf(parser.StringToUint16Panic(envStrVal)))
-		case reflect.Uint32:
-			v.Set(reflect.ValueOf(parser.StringToUint32Panic(envStrVal)))
-		case reflect.Uint64:
-			v.Set(reflect.ValueOf(parser.StringToUint64Panic(envStrVal)))
-		default:
+		// On change la valeur
+		err := setByKindFromEnvValue(field.Type.Kind(), v, envStrVal)
+		if err != nil {
 			panic(errors.New("[go-config] Type[" + field.Type.Name() + "] not handled for field[" + field.Name + "]"))
 		}
 	}
+}
+
+func getReflectValueOf(e interface{}, fieldNames []string) reflect.Value {
+	v := reflect.ValueOf(e).Elem()
+	for _, fieldName := range fieldNames {
+		v = v.FieldByName(fieldName)
+	}
+
+	// Si l'on a pas access en ecriture
+	if !v.CanSet() {
+		panic(errors.New("[go-config] cannot set field in [" + strings.Join(fieldNames, ".") + "]"))
+	}
+
+	return v
+}
+
+func setByKindFromEnvValue(k reflect.Kind, v reflect.Value, s string) error {
+	var err error = nil
+
+	// On parse la valeur en fonction du type
+	switch k {
+	case reflect.Bool:
+		v.Set(reflect.ValueOf(parser.StringToBoolPanic(s)))
+	case reflect.Float32:
+		v.Set(reflect.ValueOf(parser.StringToFloat32Panic(s)))
+	case reflect.Float64:
+		v.Set(reflect.ValueOf(parser.StringToFloat64Panic(s)))
+	case reflect.Int:
+		v.Set(reflect.ValueOf(parser.StringToIntPanic(s)))
+	case reflect.Int8:
+		v.Set(reflect.ValueOf(parser.StringToInt8Panic(s)))
+	case reflect.Int16:
+		v.Set(reflect.ValueOf(parser.StringToInt16Panic(s)))
+	case reflect.Int32:
+		v.Set(reflect.ValueOf(parser.StringToInt32Panic(s)))
+	case reflect.Int64:
+		v.Set(reflect.ValueOf(parser.StringToInt64Panic(s)))
+	case reflect.String:
+		v.Set(reflect.ValueOf(s))
+	case reflect.Uint:
+		v.Set(reflect.ValueOf(parser.StringToUintPanic(s)))
+	case reflect.Uint8:
+		v.Set(reflect.ValueOf(parser.StringToUint8Panic(s)))
+	case reflect.Uint16:
+		v.Set(reflect.ValueOf(parser.StringToUint16Panic(s)))
+	case reflect.Uint32:
+		v.Set(reflect.ValueOf(parser.StringToUint32Panic(s)))
+	case reflect.Uint64:
+		v.Set(reflect.ValueOf(parser.StringToUint64Panic(s)))
+	default:
+		err = errors.New("[go-config] Type[" + k.String() + "] not handled")
+	}
+
+	return err
 }
