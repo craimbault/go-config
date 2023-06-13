@@ -6,19 +6,20 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/craimbault/go-config/parser"
+	"github.com/craimbault/go-config/pkg/parser"
+	"gopkg.in/ini.v1"
 )
 
-func reflectStructWalk(e any, t reflect.Type, extractMethod structExtract, parents []string) {
+func reflectStructWalk(e any, t reflect.Type, extractMethod structExtract, parents []string, override interface{}) {
 	if t.Kind() == reflect.Struct {
 		for i := 0; i < t.NumField(); i++ {
 			f := t.Field(i)
 			if f.Type.Kind() == reflect.Struct {
 				parents = append(parents, f.Name)
-				reflectStructWalk(e, f.Type, extractMethod, parents)
+				reflectStructWalk(e, f.Type, extractMethod, parents, override)
 			} else {
 				if f.Tag != "" {
-					extractMethod(e, f, parents)
+					extractMethod(e, f, parents, override)
 				}
 			}
 		}
@@ -27,9 +28,9 @@ func reflectStructWalk(e any, t reflect.Type, extractMethod structExtract, paren
 	}
 }
 
-type structExtract func(interface{}, reflect.StructField, []string)
+type structExtract func(interface{}, reflect.StructField, []string, interface{})
 
-func replaceWithEnvValue(e interface{}, field reflect.StructField, parents []string) {
+func replaceWithEnvValue(e interface{}, field reflect.StructField, parents []string, override interface{}) {
 	// On recupere la valeur
 	envName, exists := field.Tag.Lookup("env")
 
@@ -49,9 +50,50 @@ func replaceWithEnvValue(e interface{}, field reflect.StructField, parents []str
 		v := getReflectValueOf(e, fieldNames)
 
 		// On change la valeur
-		err := setByKindFromEnvValue(field.Type.Kind(), v, envStrVal)
+		err := setByKindFromStringValue(field.Type.Kind(), v, envStrVal)
 		if err != nil {
 			panic(errors.New("[go-config] Type[" + field.Type.Name() + "] not handled for field[" + field.Name + "]"))
+		}
+	}
+}
+
+func replaceWithIniValue(e interface{}, field reflect.StructField, parents []string, override interface{}) {
+	iniSection := ""
+	// On recupere la valeur
+	iniKey, exists := field.Tag.Lookup("ini")
+
+	if !exists {
+		panic(errors.New("[go-config] struct tag 'ini' is not defined in field[" + field.Name + "]"))
+	}
+
+	// On regarde si l'on a une section + key
+	exploded := strings.Split(iniKey, ">")
+	if len(exploded) == 2 {
+		iniSection = exploded[0]
+		iniKey = exploded[1]
+	}
+
+	// Si l'on a bien la section
+	var cfg = override.(*ini.File)
+
+	// Si l'on a la Section
+	if cfg.HasSection(iniSection) {
+		// On la recupere
+		section := cfg.Section(iniSection)
+
+		// Si l'on a la Key
+		if section.HasKey(iniKey) {
+			// On ajoute le champ courant a la liste des champs a parcourir pour faire le set (recursif)
+			fieldNames := append(parents, field.Name)
+
+			// On recupere la reflection
+			v := getReflectValueOf(e, fieldNames)
+
+			// On change la valeur
+			err := setByKindFromStringValue(field.Type.Kind(), v, section.Key(iniKey).String())
+			if err != nil {
+				panic(errors.New("[go-config] Type[" + field.Type.Name() + "] not handled for field[" + field.Name + "]"))
+			}
 		}
 	}
 }
@@ -70,7 +112,7 @@ func getReflectValueOf(e interface{}, fieldNames []string) reflect.Value {
 	return v
 }
 
-func setByKindFromEnvValue(k reflect.Kind, v reflect.Value, s string) error {
+func setByKindFromStringValue(k reflect.Kind, v reflect.Value, s string) error {
 	var err error = nil
 
 	// On parse la valeur en fonction du type

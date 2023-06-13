@@ -62,7 +62,7 @@ func TestGetReflectValueOfPanic(t *testing.T) {
 	})
 }
 
-func TestSetByKindFromEnvValueValid(t *testing.T) {
+func TestSetByKindFromStringValueValid(t *testing.T) {
 	stringValue := "string value"
 	floatValue := 1.2
 	intValue := 1
@@ -91,7 +91,7 @@ func TestSetByKindFromEnvValueValid(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.a.String(), func(t *testing.T) {
-			err := setByKindFromEnvValue(tt.a, v, tt.c)
+			err := setByKindFromStringValue(tt.a, v, tt.c)
 
 			if err != nil {
 				t.Errorf("an error occured : %s", err)
@@ -111,12 +111,12 @@ func TestSetByKindFromEnvValueValid(t *testing.T) {
 	}
 }
 
-func TestSetByKindFromEnvValueError(t *testing.T) {
+func TestSetByKindFromStringValueError(t *testing.T) {
 	var newValue = any(1)
 	v := reflect.ValueOf(&newValue).Elem()
 
 	t.Run("Invalid", func(t *testing.T) {
-		err := setByKindFromEnvValue(reflect.Array, v, "TEST")
+		err := setByKindFromStringValue(reflect.Array, v, "TEST")
 
 		if err == nil {
 			t.Errorf("no error returned")
