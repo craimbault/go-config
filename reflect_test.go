@@ -3,24 +3,31 @@ package goconfig
 import (
 	"fmt"
 	"reflect"
+	"strings"
 	"testing"
 )
 
 type TestStruct struct {
-	Elem1 string `env:"APP_ELEM1"`
+	Elem1 string `env:"APP_ELEM1" ini:"test>elem1"`
 }
 
 type TestNestedStruct struct {
+	Par1  string `env:"APP_PAR1" ini:"par1"`
 	Child TestStruct
-	Par1  string `env:"APP_PAR1"`
 }
 
 type NotSetableTestStruct struct {
 	elem1 string `env:"APP_ELEM1"`
 }
 
-func TestGetReflectValueOfValid(t *testing.T) {
-	t.Run("TestStruct", func(t *testing.T) {
+var testedValues []string
+
+func replaceWithValueTest(e interface{}, field reflect.StructField, parents []string, override interface{}) {
+	testedValues = append(testedValues, strings.Join(append(parents, field.Name), "."))
+}
+
+func TestGetReflectValueOf(t *testing.T) {
+	t.Run("SimpleStruct", func(t *testing.T) {
 		test := TestStruct{"elem1"}
 		elements := []string{"Elem1"}
 
@@ -31,11 +38,8 @@ func TestGetReflectValueOfValid(t *testing.T) {
 			t.Errorf("got %+v, want %+v", v, vTest)
 		}
 	})
-}
-
-func TestGetReflectValueOfNestedValid(t *testing.T) {
-	t.Run("TestNestedStruct", func(t *testing.T) {
-		test := TestNestedStruct{TestStruct{"elem1"}, "par1"}
+	t.Run("NestedStruct", func(t *testing.T) {
+		test := TestNestedStruct{"par1", TestStruct{"elem1"}}
 		elements := []string{"Child", "Elem1"}
 
 		v := getReflectValueOf(&test, elements)
@@ -45,10 +49,7 @@ func TestGetReflectValueOfNestedValid(t *testing.T) {
 			t.Errorf("got %+v, want %+v", v, vTest)
 		}
 	})
-}
-
-func TestGetReflectValueOfPanic(t *testing.T) {
-	t.Run("TestStruct", func(t *testing.T) {
+	t.Run("Panic", func(t *testing.T) {
 		defer func() {
 			if r := recover(); r == nil {
 				t.Errorf("The GetReflectValueOf did not panic")
@@ -109,17 +110,81 @@ func TestSetByKindFromStringValueValid(t *testing.T) {
 			}
 		})
 	}
-}
 
-func TestSetByKindFromStringValueError(t *testing.T) {
-	var newValue = any(1)
-	v := reflect.ValueOf(&newValue).Elem()
+	newValue = any(1)
+	v = reflect.ValueOf(&newValue).Elem()
 
 	t.Run("Invalid", func(t *testing.T) {
 		err := setByKindFromStringValue(reflect.Array, v, "TEST")
 
 		if err == nil {
 			t.Errorf("no error returned")
+		}
+	})
+}
+
+func TestReflectStructWalk(t *testing.T) {
+	t.Run("TestPanic", func(t *testing.T) {
+		defer func() {
+			if r := recover(); r == nil {
+				t.Errorf("The ReflectStructWalkError did not panic")
+			}
+		}()
+
+		test := "NotAStruct"
+		var parents []string
+
+		reflectStructWalk(
+			&test,
+			reflect.TypeOf(&test).Elem(),
+			replaceWithValueTest,
+			parents,
+			nil,
+		)
+	})
+	t.Run("TestIsValid", func(t *testing.T) {
+
+		var (
+			parents []string
+			config  = TestNestedStruct{}
+		)
+
+		// On reset les resultats
+		testedValues = nil
+
+		// On definit celles attendues
+		expectedValues := []string{
+			"Child.Elem1",
+			"Par1",
+		}
+
+		// On lance le test
+		reflectStructWalk(
+			&config,
+			reflect.TypeOf(&config).Elem(),
+			replaceWithValueTest,
+			parents,
+			nil,
+		)
+
+		// Si l'on a pas le bon nombre de resultats
+		if len(testedValues) != len(expectedValues) {
+			t.Error("Not enough results in testedValues")
+		}
+
+		// On parcours les valeurs attendues
+		for _, expected := range expectedValues {
+			present := false
+			// On parcours les valeurs generees
+			for _, available := range testedValues {
+				if expected == available {
+					present = true
+				}
+			}
+			// Si l'on a pas trouve l'element
+			if !present {
+				t.Errorf("Missing tested value : %s", expected)
+			}
 		}
 	})
 }
