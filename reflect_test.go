@@ -2,18 +2,34 @@ package goconfig
 
 import (
 	"fmt"
+	"os"
 	"reflect"
 	"strings"
 	"testing"
+
+	"gopkg.in/ini.v1"
 )
 
 type TestStruct struct {
 	Elem1 string `env:"APP_ELEM1" ini:"test>elem1"`
 }
 
+type TestStruct2 struct {
+	Elem1 string `env:"APP_ELEM1" ini:"test>elem1"`
+	Elem2 string `env:"APP_ELEM2" ini:"elem2"`
+}
+
+type TestStructFieldTypeUnkown struct {
+	Elem1 any `env:"APP_ELEM1" ini:"test>elem1"`
+}
+
 type TestNestedStruct struct {
 	Par1  string `env:"APP_PAR1" ini:"par1"`
 	Child TestStruct
+}
+
+type NoEnvNoIniTestStruct struct {
+	Par1 string `test:"test"`
 }
 
 type NotSetableTestStruct struct {
@@ -186,5 +202,191 @@ func TestReflectStructWalk(t *testing.T) {
 				t.Errorf("Missing tested value : %s", expected)
 			}
 		}
+	})
+}
+
+func TestReplaceWithEnvValue(t *testing.T) {
+	t.Run("TestPanicNoEnvDefined", func(t *testing.T) {
+		defer func() {
+			if r := recover(); r == nil {
+				t.Errorf("The replaceWithEnvValue did not panic")
+			}
+		}()
+
+		var (
+			parents []string
+			config  = NoEnvNoIniTestStruct{}
+		)
+
+		replaceWithEnvValue(
+			&config,
+			reflect.TypeOf(&config).Elem().Field(0),
+			parents,
+			nil,
+		)
+	})
+
+	t.Run("TestEnvNotDefined", func(t *testing.T) {
+		var (
+			parents []string
+			config  = TestStruct{
+				Elem1: "TEST",
+			}
+		)
+
+		replaceWithEnvValue(
+			&config,
+			reflect.TypeOf(&config).Elem().Field(0),
+			parents,
+			nil,
+		)
+
+		if config.Elem1 != "TEST" {
+			t.Errorf("Value should not be modified")
+		}
+	})
+
+	t.Run("TestEnvDefined", func(t *testing.T) {
+		var (
+			parents []string
+			config  = TestStruct{
+				Elem1: "TEST",
+			}
+		)
+
+		// On indique l'env
+		os.Setenv("APP_ELEM1", "NEW")
+
+		replaceWithEnvValue(
+			&config,
+			reflect.TypeOf(&config).Elem().Field(0),
+			parents,
+			nil,
+		)
+
+		if config.Elem1 != "NEW" {
+			t.Errorf("Value should have been modified")
+		}
+	})
+
+	t.Run("TestEnvDefinedUnknownType", func(t *testing.T) {
+		defer func() {
+			if r := recover(); r == nil {
+				t.Errorf("The replaceWithEnvValue did not panic")
+			}
+		}()
+
+		var (
+			parents []string
+			config  = TestStructFieldTypeUnkown{}
+		)
+
+		replaceWithEnvValue(
+			&config,
+			reflect.TypeOf(&config).Elem().Field(0),
+			parents,
+			nil,
+		)
+	})
+}
+
+func TestReplaceWithIniValue(t *testing.T) {
+	validIni := ini.Empty()
+	validIni.Section("").Key("elem2").SetValue("NEW2")
+	section, _ := validIni.NewSection("test")
+	section.Key("elem1").SetValue("NEW1")
+	invalidIni := ini.Empty()
+
+	t.Run("TestPanicNoIniDefined", func(t *testing.T) {
+		defer func() {
+			if r := recover(); r == nil {
+				t.Errorf("The replaceWithIniValue did not panic")
+			}
+		}()
+
+		var (
+			parents []string
+			config  = NoEnvNoIniTestStruct{}
+		)
+
+		replaceWithIniValue(
+			&config,
+			reflect.TypeOf(&config).Elem().Field(0),
+			parents,
+			validIni,
+		)
+	})
+
+	t.Run("TestSectionNotDefined", func(t *testing.T) {
+		var (
+			parents []string
+			config  = TestStruct2{
+				Elem1: "TEST",
+				Elem2: "TEST",
+			}
+		)
+
+		replaceWithIniValue(
+			&config,
+			reflect.TypeOf(&config).Elem().Field(0),
+			parents,
+			invalidIni,
+		)
+
+		if config.Elem1 != "TEST" || config.Elem2 != "TEST" {
+			t.Errorf("Values should not be modified")
+		}
+	})
+
+	t.Run("TestAllDefined", func(t *testing.T) {
+		var (
+			parents []string
+			config  = TestStruct2{
+				Elem1: "TEST",
+				Elem2: "TEST",
+			}
+		)
+
+		replaceWithIniValue(
+			&config,
+			reflect.TypeOf(&config).Elem().Field(0),
+			parents,
+			validIni,
+		)
+
+		if config.Elem1 != "NEW1" {
+			t.Errorf("Elem1 has not been modified")
+		}
+
+		replaceWithIniValue(
+			&config,
+			reflect.TypeOf(&config).Elem().Field(1),
+			parents,
+			validIni,
+		)
+
+		if config.Elem2 != "NEW2" {
+			t.Errorf("Elem2 has not been modified")
+		}
+	})
+
+	t.Run("TestEnvDefinedUnknownType", func(t *testing.T) {
+		defer func() {
+			if r := recover(); r == nil {
+				t.Errorf("The replaceWithIniValue did not panic")
+			}
+		}()
+
+		var (
+			parents []string
+			config  = TestStructFieldTypeUnkown{}
+		)
+
+		replaceWithIniValue(
+			&config,
+			reflect.TypeOf(&config).Elem().Field(0),
+			parents,
+			validIni,
+		)
 	})
 }
