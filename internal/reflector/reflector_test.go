@@ -1,4 +1,4 @@
-package goconfig
+package reflector
 
 import (
 	"fmt"
@@ -150,7 +150,7 @@ func TestReflectStructWalk(t *testing.T) {
 		test := "NotAStruct"
 		var parents []string
 
-		reflectStructWalk(
+		ReflectStructWalk(
 			&test,
 			reflect.TypeOf(&test).Elem(),
 			replaceWithValueTest,
@@ -175,7 +175,7 @@ func TestReflectStructWalk(t *testing.T) {
 		}
 
 		// On lance le test
-		reflectStructWalk(
+		ReflectStructWalk(
 			&config,
 			reflect.TypeOf(&config).Elem(),
 			replaceWithValueTest,
@@ -218,7 +218,7 @@ func TestReplaceWithEnvValue(t *testing.T) {
 			config  = NoEnvNoIniTestStruct{}
 		)
 
-		replaceWithEnvValue(
+		ReplaceWithEnvValue(
 			&config,
 			reflect.TypeOf(&config).Elem().Field(0),
 			parents,
@@ -234,7 +234,7 @@ func TestReplaceWithEnvValue(t *testing.T) {
 			}
 		)
 
-		replaceWithEnvValue(
+		ReplaceWithEnvValue(
 			&config,
 			reflect.TypeOf(&config).Elem().Field(0),
 			parents,
@@ -257,7 +257,7 @@ func TestReplaceWithEnvValue(t *testing.T) {
 		// On indique l'env
 		os.Setenv("APP_ELEM1", "NEW")
 
-		replaceWithEnvValue(
+		ReplaceWithEnvValue(
 			&config,
 			reflect.TypeOf(&config).Elem().Field(0),
 			parents,
@@ -281,7 +281,7 @@ func TestReplaceWithEnvValue(t *testing.T) {
 			config  = TestStructFieldTypeUnkown{}
 		)
 
-		replaceWithEnvValue(
+		ReplaceWithEnvValue(
 			&config,
 			reflect.TypeOf(&config).Elem().Field(0),
 			parents,
@@ -309,7 +309,7 @@ func TestReplaceWithIniValue(t *testing.T) {
 			config  = NoEnvNoIniTestStruct{}
 		)
 
-		replaceWithIniValue(
+		ReplaceWithIniValue(
 			&config,
 			reflect.TypeOf(&config).Elem().Field(0),
 			parents,
@@ -326,7 +326,7 @@ func TestReplaceWithIniValue(t *testing.T) {
 			}
 		)
 
-		replaceWithIniValue(
+		ReplaceWithIniValue(
 			&config,
 			reflect.TypeOf(&config).Elem().Field(0),
 			parents,
@@ -347,7 +347,7 @@ func TestReplaceWithIniValue(t *testing.T) {
 			}
 		)
 
-		replaceWithIniValue(
+		ReplaceWithIniValue(
 			&config,
 			reflect.TypeOf(&config).Elem().Field(0),
 			parents,
@@ -358,7 +358,7 @@ func TestReplaceWithIniValue(t *testing.T) {
 			t.Errorf("Elem1 has not been modified")
 		}
 
-		replaceWithIniValue(
+		ReplaceWithIniValue(
 			&config,
 			reflect.TypeOf(&config).Elem().Field(1),
 			parents,
@@ -382,7 +382,7 @@ func TestReplaceWithIniValue(t *testing.T) {
 			config  = TestStructFieldTypeUnkown{}
 		)
 
-		replaceWithIniValue(
+		ReplaceWithIniValue(
 			&config,
 			reflect.TypeOf(&config).Elem().Field(0),
 			parents,

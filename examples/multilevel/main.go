@@ -26,7 +26,7 @@ type MongoConfig struct {
 func main() {
 	var config = AppConfig{}
 	iniFiles := []string{
-		"example.ini",
+		"main.ini",
 	}
 
 	goconfig.LoadConfig(&config, iniFiles, true)

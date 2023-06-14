@@ -3,6 +3,7 @@ package goconfig
 import (
 	"reflect"
 
+	"github.com/craimbault/go-config/internal/reflector"
 	"github.com/mcuadros/go-defaults"
 	"gopkg.in/ini.v1"
 )
@@ -24,10 +25,10 @@ func LoadConfig(config interface{}, useIniFiles []string, useEnv bool) {
 		// Si l'on a pas d'erreur sur la config
 		if err == nil {
 			// On ecrase avec les variables d'ENV si definies
-			reflectStructWalk(
+			reflector.ReflectStructWalk(
 				config,
 				reflect.TypeOf(config).Elem(),
-				replaceWithIniValue,
+				reflector.ReplaceWithIniValue,
 				parents,
 				cfg,
 			)
@@ -38,10 +39,10 @@ func LoadConfig(config interface{}, useIniFiles []string, useEnv bool) {
 	if useEnv {
 		parents = nil
 		// On ecrase avec les variables d'ENV si definies
-		reflectStructWalk(
+		reflector.ReflectStructWalk(
 			config,
 			reflect.TypeOf(config).Elem(),
-			replaceWithEnvValue,
+			reflector.ReplaceWithEnvValue,
 			parents,
 			nil,
 		)

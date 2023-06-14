@@ -1,4 +1,4 @@
-package goconfig
+package reflector
 
 import (
 	"errors"
@@ -10,13 +10,13 @@ import (
 	"gopkg.in/ini.v1"
 )
 
-func reflectStructWalk(e any, t reflect.Type, extractMethod structExtract, parents []string, override interface{}) {
+func ReflectStructWalk(e any, t reflect.Type, extractMethod structExtract, parents []string, override interface{}) {
 	if t.Kind() == reflect.Struct {
 		for i := 0; i < t.NumField(); i++ {
 			f := t.Field(i)
 			if f.Type.Kind() == reflect.Struct {
 				parents = append(parents, f.Name)
-				reflectStructWalk(e, f.Type, extractMethod, parents, override)
+				ReflectStructWalk(e, f.Type, extractMethod, parents, override)
 			} else {
 				if f.Tag != "" {
 					extractMethod(e, f, parents, override)
@@ -30,7 +30,7 @@ func reflectStructWalk(e any, t reflect.Type, extractMethod structExtract, paren
 
 type structExtract func(interface{}, reflect.StructField, []string, interface{})
 
-func replaceWithEnvValue(e interface{}, field reflect.StructField, parents []string, override interface{}) {
+func ReplaceWithEnvValue(e interface{}, field reflect.StructField, parents []string, override interface{}) {
 	// On recupere la valeur
 	envName, exists := field.Tag.Lookup("env")
 
@@ -57,7 +57,7 @@ func replaceWithEnvValue(e interface{}, field reflect.StructField, parents []str
 	}
 }
 
-func replaceWithIniValue(e interface{}, field reflect.StructField, parents []string, override interface{}) {
+func ReplaceWithIniValue(e interface{}, field reflect.StructField, parents []string, override interface{}) {
 	iniSection := ""
 	// On recupere la valeur
 	iniKey, exists := field.Tag.Lookup("ini")
