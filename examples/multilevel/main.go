@@ -1,33 +1,10 @@
-Enabling Config by stuctures with defaults values, read from ini files and read from ENV using [struct tags](http://golang.org/pkg/reflect/#StructTag).
-
-> INI file Usage :
->
->> Access INI Section then Key by using `section>key`.
->>
->> If Key has no section, just provide Key name and value.
-
-Installation
-------------
-
-The recommended way to install go-config
-
-```bash
-go get github.com/craimbault/go-config
-```
-
-Examples
---------
-
-A basic example:
-
-```go
+package main
 
 import (
 	"fmt"
 
 	goconfig "github.com/craimbault/go-config"
 )
-
 
 type AppConfig struct {
 	Name        string `env:"APP_NAME" ini:"name" default:"MyApp"`
@@ -56,14 +33,3 @@ func main() {
 
 	fmt.Println(config)
 }
-
-```
-
-TODO
---------
-
-
-License
--------
-
-MIT, see [LICENSE](LICENSE)
